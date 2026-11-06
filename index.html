@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+[06.11.2026 11:21] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -82,6 +82,13 @@ input{
 .bubble.mine{
  background:#176b91;align-self:flex-end;
 }
+.author{
+ font-size:12px;
+ font-weight:bold;
+ color:#42b8f5;
+ margin-bottom:5px;
+}
+.bubble.mine .author{color:#b8e8ff}
 .send{
  display:flex;gap:10px;padding:14px;
  background:#202d3a;
@@ -139,7 +146,6 @@ input{
 <div id="messenger" class="hidden">
 
  <aside class="sidebar" id="sidebar">
-
   <div class="header">
    <div class="brand">ЩЯВЕЛЬ</div>
    <p class="muted" id="myname"></p>
@@ -167,16 +173,14 @@ input{
    Щявель Messenger
    <button class="primary" id="logoutBtn">Выйти</button>
   </div>
-
  </aside>
-
- <main class="conversation" id="conversation">
-
+[06.11.2026 11:21] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <main class="conversation" id="conversation">
   <div class="chatheader">
    <b id="chatname">Общий чат</b>
    <div class="muted">Демонстрационный режим</div>
   </div>
- <div class="messages" id="messages">
+
+  <div class="messages" id="messages">
    <div class="empty">
     <h2>Добро пожаловать в Щявель!</h2>
     <p>Напиши своё первое сообщение.</p>
@@ -189,7 +193,6 @@ input{
     autocomplete="off">
    <button type="submit">➤</button>
   </form>
-
  </main>
 </div>
 
@@ -206,7 +209,6 @@ import {
  signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
-
 const firebaseConfig = {
  apiKey: "AIzaSyDv7hfQKtOfjoZu9-09ZBJme1dSe5Nqgrc",
  authDomain: "shyavel-messenger.firebaseapp.com",
@@ -222,7 +224,6 @@ const auth = getAuth(app);
 
 let confirmationResult = null;
 let recaptchaVerifier = null;
-
 let currentChat = "Общий чат";
 
 let chats = JSON.parse(
@@ -231,8 +232,6 @@ let chats = JSON.parse(
 
 const status = document.getElementById("authStatus");
 
-
-// Создание проверки reCAPTCHA
 function createRecaptcha(){
  if(recaptchaVerifier){
   recaptchaVerifier.clear();
@@ -245,34 +244,24 @@ function createRecaptcha(){
  );
 }
 
-
-// Отправка SMS
 async function sendCode(){
 
- const phone = document
-  .getElementById("phone")
-  .value.trim();
+ const phone = document.getElementById("phone").value.trim();
 
  if(!phone.startsWith("+") || phone.length < 8){
-  status.textContent =
-   "Введи номер в международном формате, например +7...";
+  status.textContent = "Введи номер в международном формате.";
   return;
  }
 
  try{
-
   status.textContent = "Подготовка отправки кода...";
 
   createRecaptcha();
 
-  const captcha = await recaptchaVerifier.render();
-
-  await recaptchaVerifier.verify();
+  await recaptchaVerifier.render();
 
   confirmationResult = await signInWithPhoneNumber(
-   auth,
-   phone,
-   recaptchaVerifier
+   auth,phone,recaptchaVerifier
   );
 
   document.getElementById("codeBlock")
@@ -281,27 +270,19 @@ async function sendCode(){
   status.textContent = "Код отправлен. Проверь SMS.";
 
  }catch(error){
-
   console.error(error);
-
-  status.textContent =
-   "Ошибка: " + error.message;
+  status.textContent = "Ошибка: " + error.message;
 
   if(recaptchaVerifier){
    recaptchaVerifier.clear();
    recaptchaVerifier = null;
   }
-
  }
 }
 
-
-// Проверка SMS-кода
 async function verifyCode(){
 
- const code = document
-  .getElementById("smsCode")
-  .value.trim();
+ const code = document.getElementById("smsCode").value.trim();
 
  if(!confirmationResult){
   status.textContent = "Сначала запроси код.";
@@ -314,124 +295,92 @@ async function verifyCode(){
  }
 
  try{
-
   status.textContent = "Проверяем код...";
-
   await confirmationResult.confirm(code);
-
  }catch(error){
-
   console.error(error);
-
-  status.textContent =
-   "Ошибка проверки: " + error.message;
-
+  status.textContent = "Ошибка проверки: " + error.message;
  }
-
 }
 
-
-// Состояние авторизации
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth,user=>{
 
  if(user){
-
-  document.getElementById("auth")
-   .classList.add("hidden");
-
-  document.getElementById("messenger")
-   .classList.remove("hidden");
+  document.getElementById("auth").classList.add("hidden");
+  document.getElementById("messenger").classList.remove("hidden");
 
   document.getElementById("myname").textContent =
-   "Пользователь: " + user.phoneNumber;
+   "Пользователь: " +
+   (localStorage.getItem("shyavel_name") || user.phoneNumber);
 
   openChat(currentChat);
 
  }else{
-
-  document.getElementById("messenger")
-   .classList.add("hidden");
-
-  document.getElementById("auth")
-   .classList.remove("hidden");
-
+  document.getElementById("messenger").classList.add("hidden");
+  document.getElementById("auth").classList.remove("hidden");
  }
-
 });
 
-
-// Выход
 async function logout(){
-
  try{
   await signOut(auth);
  }catch(error){
   status.textContent = error.message;
  }
-
 }
 
-
-// Открытие чата
 function openChat(name){
 
  currentChat = name;
-
  document.getElementById("chatname").textContent = name;
 
  document.querySelectorAll(".chat")
-  .forEach(el => el.classList.remove("active"));
+  .forEach(el=>el.classList.remove("active"));
 
  const list = chats[name] || [];
-
  const area = document.getElementById("messages");
-
  area.innerHTML = "";
 
  if(!list.length){
-
   area.innerHTML =
    '<div class="empty"><h2>' +
    escapeHTML(name) +
    '</h2><p>Пока сообщений нет</p></div>';
-
  }else{
 
-  list.forEach(m => {
+  list.forEach(m=>{
 
    const b = document.createElement("div");
 
    b.className = "bubble" + (m.mine ? " mine" : "");
 
-   b.textContent = m.text;
+   const author = document.createElement("div");
+   author.className = "author";
+   author.textContent = m.author || "Пользователь";
+[06.11.2026 11:21] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: const messageText = document.createElement("div");
+   messageText.textContent = m.text;
+
+   b.appendChild(author);
+   b.appendChild(messageText);
 
    area.appendChild(b);
 
   });
-
  }
+
  area.scrollTop = area.scrollHeight;
 
  if(innerWidth <= 650){
-
-  document.getElementById("sidebar")
-   .classList.add("hide");
-
-  document.getElementById("conversation")
-   .classList.remove("hide");
-
+  document.getElementById("sidebar").classList.add("hide");
+  document.getElementById("conversation").classList.remove("hide");
  }
-
 }
 
-
-// Отправка сообщения
 function sendMessage(e){
 
  e.preventDefault();
 
  const input = document.getElementById("message");
-
  const value = input.value.trim();
 
  if(!value)return;
@@ -440,9 +389,15 @@ function sendMessage(e){
   chats[currentChat] = [];
  }
 
+ const author =
+  localStorage.getItem("shyavel_name") ||
+  (auth.currentUser && auth.currentUser.phoneNumber) ||
+  "Пользователь";
+
  chats[currentChat].push({
   text:value,
-  mine:true
+  mine:true,
+  author:author
  });
 
  localStorage.setItem(
@@ -451,15 +406,10 @@ function sendMessage(e){
  );
 
  input.value = "";
-
  openChat(currentChat);
-
 }
 
-
-// Защита текста
 function escapeHTML(s){
-
  return s.replace(/[&<>"']/g,c=>({
   "&":"&amp;",
   "<":"&lt;",
@@ -467,28 +417,22 @@ function escapeHTML(s){
   '"':"&quot;",
   "'":"&#39;"
  }[c]));
-
 }
 
-
-// Кнопки
 document.getElementById("sendCodeBtn")
- .addEventListener("click", sendCode);
+ .addEventListener("click",sendCode);
 
 document.getElementById("verifyCodeBtn")
- .addEventListener("click", verifyCode);
+ .addEventListener("click",verifyCode);
 
 document.getElementById("logoutBtn")
- .addEventListener("click", logout);
+ .addEventListener("click",logout);
 
 document.getElementById("messageForm")
- .addEventListener("submit", sendMessage);
+ .addEventListener("submit",sendMessage);
 
-
-// Доступ к открытию чатов
 window.openChat = openChat;
 
 </script>
-
 </body>
 </html>
