@@ -1,9 +1,10 @@
-[06.11.2026 9:18] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <!DOCTYPE html>
+[06.11.2026 10:48] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Щявель Messenger</title>
+
 <style>
 *{box-sizing:border-box}
 body{
@@ -102,6 +103,7 @@ input{
 }
 </style>
 </head>
+
 <body>
 
 <!-- Регистрация -->
@@ -110,128 +112,383 @@ input{
   <div class="logo">Щ</div>
   <h1>ЩЯВЕЛЬ</h1>
   <p class="muted">Твой новый мессенджер</p>
+
   <div id="register">
-   <input id="username" placeholder="Твоё имя" maxlength="30">
-   <button class="primary" onclick="login()">Войти в Щявель</button>
-   <p class="muted">Демонстрационная версия. Не вводи настоящий номер телефона или личные данные.</p>
+   <input id="phone" type="tel"
+    placeholder="+7XXXXXXXXXX">
+
+   <button class="primary" id="sendCodeBtn">
+    Получить код
+   </button>
+
+   <div id="codeBlock" class="hidden">
+    <input id="smsCode" type="text"
+     placeholder="Код из SMS">
+    <button class="primary" id="verifyCodeBtn">
+     Подтвердить
+    </button>
+   </div>
+
+   <p id="authStatus" class="muted"></p>
+   <div id="recaptcha-container"></div>
   </div>
  </div>
 </div>
 
 <!-- Мессенджер -->
 <div id="messenger" class="hidden">
+
  <aside class="sidebar" id="sidebar">
+
   <div class="header">
    <div class="brand">ЩЯВЕЛЬ</div>
    <p class="muted" id="myname"></p>
   </div>
-  <div class="chat active" onclick="openChat('Общий чат')">
+
+  <div class="chat active"
+   onclick="openChat('Общий чат')">
    <div class="avatar">Щ</div>
    <div class="chatinfo">
     <b>Общий чат</b><br>
     <small>Добро пожаловать!</small>
    </div>
   </div>
-  <div class="chat" onclick="openChat('Заметки')">
+
+  <div class="chat"
+   onclick="openChat('Заметки')">
    <div class="avatar">З</div>
    <div class="chatinfo">
     <b>Заметки</b><br>
     <small>Личные сообщения</small>
    </div>
   </div>
+
   <div style="margin-top:auto;padding:18px" class="muted">
-   Щявель Messenger · Demo
-   <button class="primary" onclick="logout()">Выйти</button>
+   Щявель Messenger
+   <button class="primary" id="logoutBtn">Выйти</button>
   </div>
+
  </aside>
 
  <main class="conversation" id="conversation">
+
   <div class="chatheader">
-[06.11.2026 9:18] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <b id="chatname">Общий чат</b>
+   <b id="chatname">Общий чат</b>
    <div class="muted">Демонстрационный режим</div>
   </div>
-  <div class="messages" id="messages">
+[06.11.2026 10:48] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: <div class="messages" id="messages">
    <div class="empty">
     <h2>Добро пожаловать в Щявель!</h2>
     <p>Напиши своё первое сообщение.</p>
    </div>
   </div>
-  <form class="send" onsubmit="sendMessage(event)">
-   <input id="message" placeholder="Написать сообщение..." autocomplete="off">
+
+  <form class="send" id="messageForm">
+   <input id="message"
+    placeholder="Написать сообщение..."
+    autocomplete="off">
    <button type="submit">➤</button>
   </form>
+
  </main>
 </div>
 
-<script>
-let currentChat="Общий чат";
-let chats=JSON.parse(localStorage.getItem("shyavel_chats")||"{}");
+<script type="module">
 
-function login(){
- const name=document.getElementById("username").value.trim();
- if(!name){alert("Введи имя!");return;}
- localStorage.setItem("shyavel_name",name);
- showMessenger();
+import { initializeApp }
+ from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+
+import {
+ getAuth,
+ RecaptchaVerifier,
+ signInWithPhoneNumber,
+ onAuthStateChanged,
+ signOut
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+
+const firebaseConfig = {
+ apiKey: "AIzaSyDv7hfQKtOfjoZu9-09ZBJme1dSe5Nqgrc",
+ authDomain: "shyavel-messenger.firebaseapp.com",
+ projectId: "shyavel-messenger",
+ storageBucket: "shyavel-messenger.firebasestorage.app",
+ messagingSenderId: "150291546592",
+ appId: "1:150291546592:web:c5a1159e46d6ee255dab85",
+ measurementId: "G-PB1WEJYZGC"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+let confirmationResult = null;
+let recaptchaVerifier = null;
+
+let currentChat = "Общий чат";
+
+let chats = JSON.parse(
+ localStorage.getItem("shyavel_chats") || "{}"
+);
+
+const status = document.getElementById("authStatus");
+
+
+// Создание проверки reCAPTCHA
+function createRecaptcha(){
+ if(recaptchaVerifier){
+  recaptchaVerifier.clear();
+ }
+
+ recaptchaVerifier = new RecaptchaVerifier(
+  auth,
+  "recaptcha-container",
+  {size:"normal"}
+ );
 }
 
-function showMessenger(){
- const name=localStorage.getItem("shyavel_name");
- if(!name)return;
- document.getElementById("auth").classList.add("hidden");
- document.getElementById("messenger").classList.remove("hidden");
- document.getElementById("myname").textContent="Пользователь: "+name;
- openChat(currentChat);
+
+// Отправка SMS
+async function sendCode(){
+
+ const phone = document
+  .getElementById("phone")
+  .value.trim();
+
+ if(!phone.startsWith("+") || phone.length < 8){
+  status.textContent =
+   "Введи номер в международном формате, например +7...";
+  return;
+ }
+
+ try{
+
+  status.textContent = "Подготовка отправки кода...";
+
+  createRecaptcha();
+
+  const captcha = await recaptchaVerifier.render();
+
+  await recaptchaVerifier.verify();
+
+  confirmationResult = await signInWithPhoneNumber(
+   auth,
+   phone,
+   recaptchaVerifier
+  );
+
+  document.getElementById("codeBlock")
+   .classList.remove("hidden");
+
+  status.textContent = "Код отправлен. Проверь SMS.";
+
+ }catch(error){
+
+  console.error(error);
+
+  status.textContent =
+   "Ошибка: " + error.message;
+
+  if(recaptchaVerifier){
+   recaptchaVerifier.clear();
+   recaptchaVerifier = null;
+  }
+
+ }
 }
 
-function logout(){
- localStorage.removeItem("shyavel_name");
- document.getElementById("messenger").classList.add("hidden");
- document.getElementById("auth").classList.remove("hidden");
+
+// Проверка SMS-кода
+async function verifyCode(){
+
+ const code = document
+  .getElementById("smsCode")
+  .value.trim();
+
+ if(!confirmationResult){
+  status.textContent = "Сначала запроси код.";
+  return;
+ }
+
+ if(!code){
+  status.textContent = "Введи код из SMS.";
+  return;
+ }
+
+ try{
+
+  status.textContent = "Проверяем код...";
+
+  await confirmationResult.confirm(code);
+
+ }catch(error){
+
+  console.error(error);
+
+  status.textContent =
+   "Ошибка проверки: " + error.message;
+
+ }
+
 }
 
-function openChat(name){
- currentChat=name;
- document.getElementById("chatname").textContent=name;
- document.querySelectorAll(".chat").forEach(el=>el.classList.remove("active"));
- const list=chats[name]||[];
- const area=document.getElementById("messages");
- area.innerHTML="";
- if(!list.length){
-  area.innerHTML='<div class="empty"><h2>'+escapeHTML(name)+'</h2><p>Пока сообщений нет</p></div>';
+
+// Состояние авторизации
+onAuthStateChanged(auth, user => {
+
+ if(user){
+
+  document.getElementById("auth")
+   .classList.add("hidden");
+
+  document.getElementById("messenger")
+   .classList.remove("hidden");
+
+  document.getElementById("myname").textContent =
+   "Пользователь: " + user.phoneNumber;
+
+  openChat(currentChat);
+
  }else{
-  list.forEach(m=>{
-   const b=document.createElement("div");
-   b.className="bubble"+(m.mine?" mine":"");
-   b.textContent=m.text;
+
+  document.getElementById("messenger")
+   .classList.add("hidden");
+
+  document.getElementById("auth")
+   .classList.remove("hidden");
+
+ }
+
+});
+
+
+// Выход
+async function logout(){
+
+ try{
+  await signOut(auth);
+ }catch(error){
+  status.textContent = error.message;
+ }
+
+}
+
+
+// Открытие чата
+function openChat(name){
+
+ currentChat = name;
+
+ document.getElementById("chatname").textContent = name;
+
+ document.querySelectorAll(".chat")
+  .forEach(el => el.classList.remove("active"));
+
+ const list = chats[name] || [];
+
+ const area = document.getElementById("messages");
+
+ area.innerHTML = "";
+
+ if(!list.length){
+
+  area.innerHTML =
+   '<div class="empty"><h2>' +
+   escapeHTML(name) +
+   '</h2><p>Пока сообщений нет</p></div>';
+
+ }else{
+
+  list.forEach(m => {
+
+   const b = document.createElement("div");
+
+   b.className = "bubble" + (m.mine ? " mine" : "");
+
+   b.textContent = m.text;
+
    area.appendChild(b);
+
   });
+
  }
- area.scrollTop=area.scrollHeight;
- if(innerWidth<=650){
-  document.getElementById("sidebar").classList.add("hide");
-  document.getElementById("conversation").classList.remove("hide");
+[06.11.2026 10:48] |ㄒ乙尺乇卂ㄥﾌ乇ㄚ爪: area.scrollTop = area.scrollHeight;
+
+ if(innerWidth <= 650){
+
+  document.getElementById("sidebar")
+   .classList.add("hide");
+
+  document.getElementById("conversation")
+   .classList.remove("hide");
+
  }
+
 }
 
+
+// Отправка сообщения
 function sendMessage(e){
+
  e.preventDefault();
- const input=document.getElementById("message");
- const value=input.value.trim();
+
+ const input = document.getElementById("message");
+
+ const value = input.value.trim();
+
  if(!value)return;
- if(!chats[currentChat])chats[currentChat]=[];
- chats[currentChat].push({text:value,mine:true});
- localStorage.setItem("shyavel_chats",JSON.stringify(chats));
- input.value="";
+
+ if(!chats[currentChat]){
+  chats[currentChat] = [];
+ }
+
+ chats[currentChat].push({
+  text:value,
+  mine:true
+ });
+
+ localStorage.setItem(
+  "shyavel_chats",
+  JSON.stringify(chats)
+ );
+
+ input.value = "";
+
  openChat(currentChat);
+
 }
 
+
+// Защита текста
 function escapeHTML(s){
+
  return s.replace(/[&<>"']/g,c=>({
-  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#39;"
  }[c]));
+
 }
 
-if(localStorage.getItem("shyavel_name"))showMessenger();
+
+// Кнопки
+document.getElementById("sendCodeBtn")
+ .addEventListener("click", sendCode);
+
+document.getElementById("verifyCodeBtn")
+ .addEventListener("click", verifyCode);
+
+document.getElementById("logoutBtn")
+ .addEventListener("click", logout);
+
+document.getElementById("messageForm")
+ .addEventListener("submit", sendMessage);
+
+
+// Доступ к открытию чатов
+window.openChat = openChat;
+
 </script>
+
 </body>
 </html>
